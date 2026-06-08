@@ -221,17 +221,32 @@ jobs:
         run: |
           mkdir -p out/final
           echo -e "MANIFEST_URL=${MANIFEST_URL}\nMANIFEST_BRANCH=${MANIFEST_BRANCH}\nOTA_URL=${OTA_URL}\nTIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" > out/final/repack_metadata.txt
+          
           if [ "$REPACK_ENABLED" != "true" ]; then
-            echo ">>> Image-only mode: Copying raw kernel Image to artifacts"
-            cp -f out/Image out/final/ || true
+            echo ">>> No OTA provided. Falling back to AnyKernel3 Zip generation..."
+            # Dynamically append -AK3 to the output name
+            echo "ARTIFACT_NAME=${{ inputs.build_name }}-AK3" >> $GITHUB_ENV
+            
+            AK3_REPO="https://github.com/shoey63/AnyKernel3.git" 
+            AK3_BRANCH="master"
+            
+            git clone --depth=1 -b "$AK3_BRANCH" "$AK3_REPO" AnyKernel3-Builder
+            rm -rf AnyKernel3-Builder/.git AnyKernel3-Builder/README.md AnyKernel3-Builder/*placeholder
+            cp -f out/Image AnyKernel3-Builder/
+            cp -r AnyKernel3-Builder/* out/final/
+            
+          else
+            echo ">>> OTA Repack detected. Outputting standard boot image."
+            # Keep the standard name for boot image repacks
+            echo "ARTIFACT_NAME=${{ inputs.build_name }}" >> $GITHUB_ENV
           fi
           
           echo ">>> Final Artifact Directory:"
           ls -lah out/final/
 
-      - name: Upload repacked boot artifact
+      - name: Upload final artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.build_name }}
+          name: ${{ env.ARTIFACT_NAME }}
           path: out/final/
           if-no-files-found: error
