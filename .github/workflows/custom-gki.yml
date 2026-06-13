@@ -287,6 +287,26 @@ jobs:
             --outdir "out/final" \
             --outname "${{ env.MANIFEST_BRANCH }}.img" \
             --workdir "work/repack-tmp"
+
+      - name: Add Factory Image
+        if: env.REPACK_ENABLED == 'true'
+        run: |
+          echo ">>> Preparing factory image from OTA package..."
+          mkdir -p out/factory
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -q requests remotezip
+          
+          # Extrai todos os arquivos de partição para formar a imagem de fábrica
+          python3 ./scripts/ota_pull.py \
+            --source "$OTA_URL" \
+            --partition all \
+            --outdir out/factory
+          
+          # Compacta todos os arquivos em um pacote de imagem de fábrica
+          cd out/factory
+          zip -r ../final/${SAFE_BUILD_NAME}-factory-image.zip .
+          echo ">>> Factory image created: ${SAFE_BUILD_NAME}-factory-image.zip"
             
       - name: Prepare Final Artifacts
         run: |
